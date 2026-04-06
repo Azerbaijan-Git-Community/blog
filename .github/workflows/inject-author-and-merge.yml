@@ -27,21 +27,11 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Get PR author's GitHub ID
-        id: author
-        run: |
-          AUTHOR="${{ github.event.pull_request.user.login }}"
-          AUTHOR_ID=$(gh api "/users/$AUTHOR" --jq '.id')
-          echo "id=$AUTHOR_ID" >> "$GITHUB_OUTPUT"
-          echo "login=$AUTHOR" >> "$GITHUB_OUTPUT"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-
       - name: Inject author into frontmatter
         run: |
           set -e
 
-          AUTHOR_ID="${{ steps.author.outputs.id }}"
+          AUTHOR_ID="${{ github.event.pull_request.user.id }}"
           CHANGED_FILES=$(git diff --name-only origin/main...HEAD -- 'posts/*/index.mdx')
 
           if [ -z "$CHANGED_FILES" ]; then
