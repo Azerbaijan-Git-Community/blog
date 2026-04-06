@@ -8,6 +8,8 @@ on:
 
 jobs:
   validate:
+    # Skip validation when the bot pushes the author injection commit
+    if: github.actor != 'blog-action-bot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
