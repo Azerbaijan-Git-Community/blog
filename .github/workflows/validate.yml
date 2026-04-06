@@ -8,11 +8,20 @@ on:
 
 jobs:
   validate:
-    # Skip validation when the bot pushes the author injection commit
-    if: github.actor != 'blog-action-bot[bot]'
     runs-on: ubuntu-latest
     steps:
+      # Exit 0 immediately when the bot pushes the author injection commit.
+      # We cannot skip the job entirely — a skipped status check does not count
+      # as "passing", so auto-merge would never fire. Exiting here gives GitHub
+      # a green ✓ for the check.
+      - name: Pass immediately for bot commits
+        if: github.actor == 'blog-action-bot[bot]'
+        run: |
+          echo "Bot commit detected — skipping content validation."
+          exit 0
+
       - name: Checkout
+        if: github.actor != 'blog-action-bot[bot]'
         uses: actions/checkout@v4
 
       - name: Setup Node.js
