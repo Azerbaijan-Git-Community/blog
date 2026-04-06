@@ -56,8 +56,8 @@ jobs:
             # Extract frontmatter
             frontmatter=$(sed -n '/^---$/,/^---$/p' "$mdx_file" | sed '1d;$d')
 
-            # Check required fields
-            for field in title description tags coverImage; do
+            # Check required frontmatter fields
+            for field in title description tags; do
               if ! echo "$frontmatter" | grep -q "^${field}:"; then
                 errors+=("$slug: Missing required frontmatter field: $field")
               fi
@@ -68,13 +68,14 @@ jobs:
               errors+=("$slug: Do not set 'author' field — it is injected automatically by the CI bot")
             fi
 
-            # Validate coverImage points to existing file
-            cover=$(echo "$frontmatter" | grep "^coverImage:" | sed 's/^coverImage:\s*//' | sed 's/^["'\'']\|["'\'']$//g')
-            if [ -n "$cover" ]; then
-              cover_path="posts/$slug/${cover#./}"
-              if [ ! -f "$cover_path" ]; then
-                errors+=("$slug: coverImage '$cover' does not exist at $cover_path")
-              fi
+            # Ensure coverImage is NOT in frontmatter (always images/cover.png)
+            if echo "$frontmatter" | grep -q "^coverImage:"; then
+              errors+=("$slug: Do not set 'coverImage' — place your cover image at images/cover.png")
+            fi
+
+            # Validate cover image exists at images/cover.png
+            if [ ! -f "posts/$slug/images/cover.png" ]; then
+              errors+=("$slug: Missing required cover image at images/cover.png")
             fi
 
             # Check image sizes

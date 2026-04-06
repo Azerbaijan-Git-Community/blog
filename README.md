@@ -9,8 +9,9 @@ Community-driven blog for the [Azerbaijan GitHub Community](https://github.com/A
    - Use only lowercase letters, numbers, and hyphens (e.g., `my-awesome-post`)
    - The folder name becomes the URL: `/blog/my-awesome-post`
 3. **Add `index.mdx`** with your content (see template below)
-4. **Add images** to an `images/` subfolder inside your post folder
-5. **Open a pull request** targeting `main`
+4. **Add a cover image** at `images/cover.png` inside your post folder
+5. **Add any other images** to the same `images/` subfolder
+6. **Open a pull request** targeting `main`
 
 ## Post template
 
@@ -19,7 +20,6 @@ Community-driven blog for the [Azerbaijan GitHub Community](https://github.com/A
 title: "Your Post Title"
 description: "A short description of your post (shown in cards and meta tags)."
 tags: [tag1, tag2, tag3]
-coverImage: ./images/cover.png
 ---
 
 Your MDX content here...
@@ -32,7 +32,6 @@ Your MDX content here...
 | `title` | Yes | Post title |
 | `description` | Yes | Short description for cards and SEO |
 | `tags` | Yes | Array of tags (used for meta keywords) |
-| `coverImage` | Yes | Relative path to cover image |
 | `author` | Auto | **Do not set** — injected automatically by CI |
 
 ### Folder structure
@@ -42,13 +41,14 @@ posts/
   my-post-slug/
     index.mdx
     images/
-      cover.png       # Required (referenced by coverImage)
+      cover.png       # Required — used as the post's cover image
       diagram.png     # Optional additional images
 ```
 
 ## Rules
 
 - **Folder names**: lowercase English letters, digits, and hyphens only (`^[a-z0-9]+(-[a-z0-9]+)*$`)
+- **Cover image**: every post must have `images/cover.png`
 - **Images**: max 1MB per image, max 5MB total per post. Allowed formats: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.svg`
 - **Do not set `author`** in frontmatter — it is injected by the CI bot using your GitHub user ID
 - **MDX features**: You can use standard Markdown, GitHub Flavored Markdown (tables, task lists), code blocks with syntax highlighting, and JSX
