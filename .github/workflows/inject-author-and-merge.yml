@@ -1,8 +1,12 @@
 name: Inject Author & Merge
 
 on:
+  # Maintainer approves the PR
   pull_request_review:
     types: [submitted]
+  # CTO comments "/merge" (for self-authored PRs)
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -10,7 +14,9 @@ permissions:
 
 jobs:
   inject-and-merge:
-    if: github.event.review.state == 'approved'
+    if: |
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'approved') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.comment.body == '/merge')
     runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App token
@@ -20,28 +26,58 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      # Verify the actor is a maintainer (approval) or CTO (/merge)
+      - name: Verify permissions
+        run: |
+          ORG="Azerbaijan-Git-Community"
+          ACTOR="${{ github.event_name == 'issue_comment' && github.event.comment.user.login || github.event.review.user.login }}"
+
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            # /merge command: must be a CTO team member
+            IS_CTO=$(gh api "/orgs/$ORG/teams/cto/members" --jq ".[].login" | grep -cx "$ACTOR")
+            if [ "$IS_CTO" -eq 0 ]; then
+              echo "::error::Only CTO team members can use /merge"
+              exit 1
+            fi
+          else
+            # Approval: must be a maintainer team member
+            IS_MAINTAINER=$(gh api "/orgs/$ORG/teams/maintainers/members" --jq ".[].login" | grep -cx "$ACTOR")
+            if [ "$IS_MAINTAINER" -eq 0 ]; then
+              echo "::error::Only maintainer team members can approve"
+              exit 1
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Get PR details
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            PR_NUMBER="${{ github.event.issue.number }}"
+          else
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+          fi
+
+          PR_DATA=$(gh api "/repos/${{ github.repository }}/pulls/$PR_NUMBER")
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$(echo "$PR_DATA" | jq -r '.head.ref')" >> "$GITHUB_OUTPUT"
+          echo "author_id=$(echo "$PR_DATA" | jq -r '.user.id')" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ steps.pr.outputs.head_ref }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
-
-      - name: Get PR author's GitHub ID
-        id: author
-        run: |
-          AUTHOR="${{ github.event.pull_request.user.login }}"
-          AUTHOR_ID=$(gh api "/users/$AUTHOR" --jq '.id')
-          echo "id=$AUTHOR_ID" >> "$GITHUB_OUTPUT"
-          echo "login=$AUTHOR" >> "$GITHUB_OUTPUT"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Inject author into frontmatter
         run: |
           set -e
 
-          AUTHOR_ID="${{ steps.author.outputs.id }}"
+          AUTHOR_ID="${{ steps.pr.outputs.author_id }}"
           CHANGED_FILES=$(git diff --name-only origin/main...HEAD -- 'posts/*/index.mdx')
 
           if [ -z "$CHANGED_FILES" ]; then
@@ -51,13 +87,11 @@ jobs:
 
           INJECTED=false
           for file in $CHANGED_FILES; do
-            # Check if author is already set
             if grep -q "^author:" "$file"; then
               echo "Author already set in $file, skipping."
               continue
             fi
 
-            # Inject author after the opening ---
             sed -i "0,/^---$/!{0,/^---$/s/^---$/author: $AUTHOR_ID\n---/}" "$file"
             echo "Injected author: $AUTHOR_ID into $file"
             INJECTED=true
@@ -71,7 +105,7 @@ jobs:
             git push
           fi
 
-      - name: Auto-merge PR
-        run: gh pr merge "${{ github.event.pull_request.number }}" --merge --auto
+      - name: Merge PR
+        run: gh pr merge "${{ steps.pr.outputs.number }}" --merge --auto
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
