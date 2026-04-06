@@ -1,0 +1,25 @@
+name: Sync Blog to Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "posts/**"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger website blog sync
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.WEBSITE_URL }}/api/webhooks/blog" \
+            -H "Authorization: Bearer ${{ secrets.BLOG_WEBHOOK_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          if [ "$response" -ne 200 ]; then
+            echo "::error::Webhook failed with status $response"
+            exit 1
+          fi
+
+          echo "Webhook triggered successfully"
