@@ -106,6 +106,6 @@ jobs:
           fi
 
       - name: Merge PR
-        run: gh pr merge "${{ steps.pr.outputs.number }}" --merge --auto
+        run: gh pr merge "${{ steps.pr.outputs.number }}" --merge
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
