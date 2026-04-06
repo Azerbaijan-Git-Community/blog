@@ -1,0 +1,77 @@
+name: Inject Author & Merge
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  inject-and-merge:
+    if: github.event.review.state == 'approved'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Get PR author's GitHub ID
+        id: author
+        run: |
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+          AUTHOR_ID=$(gh api "/users/$AUTHOR" --jq '.id')
+          echo "id=$AUTHOR_ID" >> "$GITHUB_OUTPUT"
+          echo "login=$AUTHOR" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Inject author into frontmatter
+        run: |
+          set -e
+
+          AUTHOR_ID="${{ steps.author.outputs.id }}"
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD -- 'posts/*/index.mdx')
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No index.mdx files changed, skipping injection."
+            exit 0
+          fi
+
+          INJECTED=false
+          for file in $CHANGED_FILES; do
+            # Check if author is already set
+            if grep -q "^author:" "$file"; then
+              echo "Author already set in $file, skipping."
+              continue
+            fi
+
+            # Inject author after the opening ---
+            sed -i "0,/^---$/!{0,/^---$/s/^---$/author: $AUTHOR_ID\n---/}" "$file"
+            echo "Injected author: $AUTHOR_ID into $file"
+            INJECTED=true
+          done
+
+          if [ "$INJECTED" = true ]; then
+            git config user.name "az-git-community[bot]"
+            git config user.email "az-git-community[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "chore: inject author ID ($AUTHOR_ID) into blog post frontmatter"
+            git push
+          fi
+
+      - name: Auto-merge PR
+        run: gh pr merge "${{ github.event.pull_request.number }}" --merge --auto
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}

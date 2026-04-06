@@ -1,0 +1,115 @@
+name: Validate Blog Post
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "posts/**"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Get changed files
+        id: changed
+        uses: tj-actions/changed-files@v44
+        with:
+          files: "posts/**"
+
+      - name: Validate posts
+        run: |
+          set -e
+
+          SLUG_REGEX='^[a-z0-9]+(-[a-z0-9]+)*$'
+          ALLOWED_IMAGE_EXTS='png|jpg|jpeg|webp|gif|svg'
+          MAX_IMAGE_SIZE=1048576    # 1 MB per image
+          MAX_TOTAL_IMAGES=5242880  # 5 MB total per post
+
+          errors=()
+
+          # Get unique post directories from changed files
+          dirs=$(echo "${{ steps.changed.outputs.all_changed_files }}" | tr ' ' '\n' | grep '^posts/' | sed 's|posts/\([^/]*\)/.*|\1|' | sort -u)
+
+          for slug in $dirs; do
+            echo "::group::Validating $slug"
+
+            # Validate folder name
+            if ! echo "$slug" | grep -qE "$SLUG_REGEX"; then
+              errors+=("$slug: Invalid folder name. Must match $SLUG_REGEX")
+            fi
+
+            mdx_file="posts/$slug/index.mdx"
+            if [ ! -f "$mdx_file" ]; then
+              errors+=("$slug: Missing index.mdx")
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Extract frontmatter
+            frontmatter=$(sed -n '/^---$/,/^---$/p' "$mdx_file" | sed '1d;$d')
+
+            # Check required fields
+            for field in title description tags coverImage; do
+              if ! echo "$frontmatter" | grep -q "^${field}:"; then
+                errors+=("$slug: Missing required frontmatter field: $field")
+              fi
+            done
+
+            # Ensure author is NOT set (bot injects it)
+            if echo "$frontmatter" | grep -q "^author:"; then
+              errors+=("$slug: Do not set 'author' field — it is injected automatically by the CI bot")
+            fi
+
+            # Validate coverImage points to existing file
+            cover=$(echo "$frontmatter" | grep "^coverImage:" | sed 's/^coverImage:\s*//' | sed 's/^["'\'']\|["'\'']$//g')
+            if [ -n "$cover" ]; then
+              cover_path="posts/$slug/${cover#./}"
+              if [ ! -f "$cover_path" ]; then
+                errors+=("$slug: coverImage '$cover' does not exist at $cover_path")
+              fi
+            fi
+
+            # Check image sizes
+            if [ -d "posts/$slug/images" ]; then
+              total_size=0
+              for img in posts/$slug/images/*; do
+                [ -f "$img" ] || continue
+
+                ext="${img##*.}"
+                if ! echo "$ext" | grep -qiE "^($ALLOWED_IMAGE_EXTS)$"; then
+                  errors+=("$slug: Unsupported image format: $img (allowed: $ALLOWED_IMAGE_EXTS)")
+                fi
+
+                size=$(stat -c%s "$img" 2>/dev/null || stat -f%z "$img" 2>/dev/null)
+                if [ "$size" -gt "$MAX_IMAGE_SIZE" ]; then
+                  errors+=("$slug: Image $img exceeds 1MB ($(( size / 1024 ))KB)")
+                fi
+                total_size=$((total_size + size))
+              done
+
+              if [ "$total_size" -gt "$MAX_TOTAL_IMAGES" ]; then
+                errors+=("$slug: Total image size exceeds 5MB ($(( total_size / 1024 ))KB)")
+              fi
+            fi
+
+            echo "::endgroup::"
+          done
+
+          # Report results
+          if [ ${#errors[@]} -gt 0 ]; then
+            echo "::error::Validation failed with ${#errors[@]} error(s):"
+            for err in "${errors[@]}"; do
+              echo "::error::  - $err"
+            done
+            exit 1
+          fi
+
+          echo "All validations passed!"
