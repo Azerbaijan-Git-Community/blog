@@ -98,8 +98,8 @@ jobs:
           done
 
           if [ "$INJECTED" = true ]; then
-            git config user.name "az-git-community[bot]"
-            git config user.email "az-git-community[bot]@users.noreply.github.com"
+            git config user.name "blog-action-bot[bot]"
+            git config user.email "blog-action-bot[bot]@users.noreply.github.com"
             git add -A
             git commit -m "chore: inject author ID ($AUTHOR_ID) into blog post frontmatter"
             git push
