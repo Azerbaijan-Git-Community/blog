@@ -53,24 +53,27 @@ jobs:
           BLOG_VALIDATE_SECRET: ${{ secrets.AUTHOR_VALIDATE_SECRET }}
           WEBSITE_URL: ${{ secrets.WEBSITE_URL }}
         run: |
-          set -e
+          failed=0
           for slug in ${{ steps.slugs.outputs.list }}; do
             author_id=$(grep -m1 '^author:' "posts/$slug/index.mdx" | awk '{print $2}')
             [ -z "$author_id" ] && continue
 
             response=$(curl -s -w "\n%{http_code}" \
               -H "Authorization: Bearer $BLOG_VALIDATE_SECRET" \
-              "$WEBSITE_URL/api/blog/validate-author?githubId=$author_id")
+              "$WEBSITE_URL/api/blog/validate-author?githubId=$author_id" 2>&1) || true
 
             http_code=$(echo "$response" | tail -1)
             body=$(echo "$response" | head -1)
 
+            echo "$slug: $body"
+
             if [ "$http_code" = "404" ]; then
               message=$(echo "$body" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
               echo "::error::$slug: $message"
-              exit 1
+              failed=1
             elif [ "$http_code" != "200" ]; then
               echo "::error::$slug: Author check failed (HTTP $http_code)"
-              exit 1
+              failed=1
             fi
           done
+          exit $failed

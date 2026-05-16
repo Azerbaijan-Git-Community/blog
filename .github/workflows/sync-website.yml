@@ -12,14 +12,17 @@ jobs:
     steps:
       - name: Trigger website blog sync
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
+          response=$(curl -s -w "\n%{http_code}" \
             -X POST "${{ secrets.WEBSITE_URL }}/api/webhooks/blog" \
             -H "Authorization: Bearer ${{ secrets.BLOG_WEBHOOK_SECRET }}" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json" 2>&1) || true
 
-          if [ "$response" -ne 200 ]; then
-            echo "::error::Webhook failed with status $response"
+          body=$(echo "$response" | head -1)
+          http_code=$(echo "$response" | tail -1)
+
+          echo "Response: $body"
+
+          if [ "$http_code" -ne 200 ]; then
+            echo "::error::Webhook failed with status $http_code"
             exit 1
           fi
-
-          echo "Webhook triggered successfully"
