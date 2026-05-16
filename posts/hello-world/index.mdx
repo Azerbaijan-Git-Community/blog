@@ -16,14 +16,26 @@ Here are some ideas for blog posts:
 - **Career insights** — lessons learned from your developer journey
 - **Open source contributions** — your experience contributing to OSS
 - **Conference talks** — summaries of talks you've given or attended
+- **Anything** — if it's about open source or programming, it belongs here
 
 ## How to contribute
 
+Check out the [blog repository README](https://github.com/Azerbaijan-Git-Community/blog#readme) for the full guide. The short version:
+
 1. Fork the [blog repository](https://github.com/Azerbaijan-Git-Community/blog)
-2. Create a new folder in `posts/` with your post slug (e.g., `my-awesome-post`)
-3. Add an `index.mdx` file with your content
-4. Add images to an `images/` subfolder
-5. Open a pull request!
+2. Run `pnpm create-post` — it will ask for your username, slug, title, and tags, then scaffold everything for you
+3. Write your post in the generated `index.mdx` and add a cover image
+4. Open a pull request!
+
+## Images
+
+You can embed images stored in your `images/` folder:
+
+![Hello World cover](./images/cover.png)
+
+Or use an external URL:
+
+![GitHub Octocat](https://github.githubassets.com/images/mona-loading-default.gif)
 
 ## Code examples
 
