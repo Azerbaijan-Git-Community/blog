@@ -10,116 +10,67 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      # When the bot pushes the author-injection commit we still need this job
-      # to complete with a green ✓. A skipped job does NOT satisfy required
-      # status checks, so auto-merge would never fire. We let all subsequent
-      # steps check `github.actor` individually and no-op, leaving the job
-      # status as "success".
       - name: Checkout
-        if: github.actor != 'blog-action-bot[bot]'
         uses: actions/checkout@v4
 
       - name: Setup Node.js
-        if: github.actor != 'blog-action-bot[bot]'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Get changed files
-        if: github.actor != 'blog-action-bot[bot]'
         id: changed
         uses: tj-actions/changed-files@v44
         with:
           files: "posts/**"
 
+      - name: Extract changed slugs
+        id: slugs
+        run: |
+          slugs=$(echo "${{ steps.changed.outputs.all_changed_files }}" \
+            | tr ' ' '\n' \
+            | grep '^posts/' \
+            | sed 's|posts/\([^/]*\)/.*|\1|' \
+            | sort -u \
+            | tr '\n' ' ')
+          echo "list=$slugs" >> $GITHUB_OUTPUT
+
       - name: Validate posts
-        if: github.actor != 'blog-action-bot[bot]'
+        run: pnpm validate ${{ steps.slugs.outputs.list }}
+        env:
+          PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
+
+      - name: Check author is registered on website
+        env:
+          BLOG_VALIDATE_SECRET: ${{ secrets.AUTHOR_VALIDATE_SECRET }}
+          WEBSITE_URL: ${{ secrets.WEBSITE_URL }}
         run: |
           set -e
+          for slug in ${{ steps.slugs.outputs.list }}; do
+            author_id=$(grep -m1 '^author:' "posts/$slug/index.mdx" | awk '{print $2}')
+            [ -z "$author_id" ] && continue
 
-          SLUG_REGEX='^[a-z0-9]+(-[a-z0-9]+)*$'
-          ALLOWED_IMAGE_EXTS='png|jpg|jpeg|webp|gif|svg'
-          MAX_IMAGE_SIZE=1048576    # 1 MB per image
-          MAX_TOTAL_IMAGES=5242880  # 5 MB total per post
+            response=$(curl -s -w "\n%{http_code}" \
+              -H "Authorization: Bearer $BLOG_VALIDATE_SECRET" \
+              "$WEBSITE_URL/api/blog/validate-author?githubId=$author_id")
 
-          errors=()
+            http_code=$(echo "$response" | tail -1)
+            body=$(echo "$response" | head -1)
 
-          # Get unique post directories from changed files
-          dirs=$(echo "${{ steps.changed.outputs.all_changed_files }}" | tr ' ' '\n' | grep '^posts/' | sed 's|posts/\([^/]*\)/.*|\1|' | sort -u)
-
-          for slug in $dirs; do
-            echo "::group::Validating $slug"
-
-            # Validate folder name
-            if ! echo "$slug" | grep -qE "$SLUG_REGEX"; then
-              errors+=("$slug: Invalid folder name. Must match $SLUG_REGEX")
+            if [ "$http_code" = "404" ]; then
+              message=$(echo "$body" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
+              echo "::error::$slug: $message"
+              exit 1
+            elif [ "$http_code" != "200" ]; then
+              echo "::error::$slug: Author check failed (HTTP $http_code)"
+              exit 1
             fi
-
-            mdx_file="posts/$slug/index.mdx"
-            if [ ! -f "$mdx_file" ]; then
-              errors+=("$slug: Missing index.mdx")
-              echo "::endgroup::"
-              continue
-            fi
-
-            # Extract frontmatter
-            frontmatter=$(sed -n '/^---$/,/^---$/p' "$mdx_file" | sed '1d;$d')
-
-            # Check required frontmatter fields
-            for field in title description tags; do
-              if ! echo "$frontmatter" | grep -q "^${field}:"; then
-                errors+=("$slug: Missing required frontmatter field: $field")
-              fi
-            done
-
-            # Ensure author is NOT set (bot injects it)
-            if echo "$frontmatter" | grep -q "^author:"; then
-              errors+=("$slug: Do not set 'author' field — it is injected automatically by the CI bot")
-            fi
-
-            # Ensure coverImage is NOT in frontmatter (always images/cover.png)
-            if echo "$frontmatter" | grep -q "^coverImage:"; then
-              errors+=("$slug: Do not set 'coverImage' — place your cover image at images/cover.png")
-            fi
-
-            # Validate cover image exists at images/cover.png
-            if [ ! -f "posts/$slug/images/cover.png" ]; then
-              errors+=("$slug: Missing required cover image at images/cover.png")
-            fi
-
-            # Check image sizes
-            if [ -d "posts/$slug/images" ]; then
-              total_size=0
-              for img in posts/$slug/images/*; do
-                [ -f "$img" ] || continue
-
-                ext="${img##*.}"
-                if ! echo "$ext" | grep -qiE "^($ALLOWED_IMAGE_EXTS)$"; then
-                  errors+=("$slug: Unsupported image format: $img (allowed: $ALLOWED_IMAGE_EXTS)")
-                fi
-
-                size=$(stat -c%s "$img" 2>/dev/null || stat -f%z "$img" 2>/dev/null)
-                if [ "$size" -gt "$MAX_IMAGE_SIZE" ]; then
-                  errors+=("$slug: Image $img exceeds 1MB ($(( size / 1024 ))KB)")
-                fi
-                total_size=$((total_size + size))
-              done
-
-              if [ "$total_size" -gt "$MAX_TOTAL_IMAGES" ]; then
-                errors+=("$slug: Total image size exceeds 5MB ($(( total_size / 1024 ))KB)")
-              fi
-            fi
-
-            echo "::endgroup::"
           done
-
-          # Report results
-          if [ ${#errors[@]} -gt 0 ]; then
-            echo "::error::Validation failed with ${#errors[@]} error(s):"
-            for err in "${errors[@]}"; do
-              echo "::error::  - $err"
-            done
-            exit 1
-          fi
-
-          echo "All validations passed!"

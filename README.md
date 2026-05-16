@@ -27,12 +27,12 @@ Your MDX content here...
 
 ### Frontmatter fields
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `title` | Yes | Post title |
-| `description` | Yes | Short description for cards and SEO |
-| `tags` | Yes | Array of tags (used for meta keywords) |
-| `author` | Auto | **Do not set** — injected automatically by CI |
+| Field         | Required | Description                                   |
+| ------------- | -------- | --------------------------------------------- |
+| `title`       | Yes      | Post title                                    |
+| `description` | Yes      | Short description for cards and SEO           |
+| `tags`        | Yes      | Array of tags (used for meta keywords)        |
+| `author`      | Auto     | **Do not set** — injected automatically by CI |
 
 ### Folder structure
 

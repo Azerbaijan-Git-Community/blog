@@ -1,0 +1,25 @@
+{
+  "name": "blog",
+  "version": "1.0.0",
+  "scripts": {
+    "get-github-id": "node scripts/get-github-id.ts",
+    "create-post": "node scripts/create-post.ts",
+    "validate": "node scripts/validate.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.1.2"
+    }
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "24.12.4",
+    "prettier": "3.8.3"
+  }
+}
