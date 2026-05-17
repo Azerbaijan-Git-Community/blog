@@ -1,6 +1,10 @@
 {
   "name": "blog",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=10"
+  },
   "scripts": {
     "get-github-id": "node scripts/get-github-id.ts",
     "create-post": "node scripts/create-post.ts",
@@ -11,12 +15,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.1.2"
-    }
-  },
   "type": "module",
   "devDependencies": {
     "@types/node": "24.12.4",
