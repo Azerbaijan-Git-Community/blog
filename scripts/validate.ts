@@ -1,6 +1,6 @@
-import { execSync } from "child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "fs";
-import { extname, join } from "path";
+import { execSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join } from "node:path";
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const ALLOWED_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"]);
@@ -96,10 +96,7 @@ const prAuthorId = process.env.PR_AUTHOR_ID;
 
 function gitLines(cmd: string): string[] {
   try {
-    return execSync(cmd, { encoding: "utf8" })
-      .trim()
-      .split("\n")
-      .filter(Boolean);
+    return execSync(cmd, { encoding: "utf8" }).trim().split("\n").filter(Boolean);
   } catch {
     return [];
   }

@@ -1,6 +1,7 @@
-import { createInterface } from "readline/promises";
-import { mkdirSync, writeFileSync, existsSync } from "fs";
-import { join } from "path";
+import { mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { createInterface } from "node:readline/promises";
+import { fetchGitHubUser } from "./lib/github.ts";
 
 const c = {
   reset: "\x1b[0m",
@@ -28,12 +29,6 @@ async function ask(question: string): Promise<string> {
   return answer.trim();
 }
 
-async function fetchGitHubUser(username: string): Promise<{ id: number; login: string } | null> {
-  const res = await fetch(`https://api.github.com/users/${username}`);
-  if (!res.ok) return null;
-  return res.json() as Promise<{ id: number; login: string }>;
-}
-
 async function main() {
   console.log(`\n${bold(cyan("Creating a new blog post..."))}\n`);
 
@@ -46,7 +41,13 @@ async function main() {
       continue;
     }
     process.stdout.write(dim("  Fetching GitHub ID..."));
-    const user = await fetchGitHubUser(username);
+    let user;
+    try {
+      user = await fetchGitHubUser(username);
+    } catch (err) {
+      console.log(`\n  ${red(err instanceof Error ? err.message : String(err))}\n`);
+      continue;
+    }
     if (!user) {
       console.log(`\n  ${red(`User "${username}" not found on GitHub. Try again.`)}\n`);
       continue;

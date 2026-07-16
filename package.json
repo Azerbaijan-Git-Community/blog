@@ -1,23 +1,23 @@
 {
   "name": "blog",
   "version": "1.0.0",
-  "engines": {
-    "node": ">=24",
-    "pnpm": ">=10"
-  },
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "module",
   "scripts": {
     "get-github-id": "node scripts/get-github-id.ts",
     "create-post": "node scripts/create-post.ts",
     "validate": "node scripts/validate.ts",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
   "devDependencies": {
     "@types/node": "24.12.4",
-    "prettier": "3.8.3"
+    "oxfmt": "0.59.0"
+  },
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=10"
   }
 }
