@@ -1,9 +1,6 @@
 {
   "name": "blog",
   "version": "1.0.0",
-  "keywords": [],
-  "license": "ISC",
-  "author": "",
   "type": "module",
   "scripts": {
     "get-github-id": "node scripts/get-github-id.ts",
@@ -13,11 +10,11 @@
     "fmt:check": "oxfmt --check"
   },
   "devDependencies": {
-    "@types/node": "24.12.4",
-    "oxfmt": "0.59.0"
+    "@types/node": "24.13.3",
+    "oxfmt": "0.61.0"
   },
   "engines": {
     "node": ">=24",
-    "pnpm": ">=10"
+    "pnpm": ">=11"
   }
 }
