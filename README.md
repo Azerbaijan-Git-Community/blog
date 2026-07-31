@@ -107,13 +107,14 @@ All content images are automatically centered and rendered below the surrounding
 
 ## Validate locally
 
-Before opening a PR, run the validator to catch any issues:
+Before opening a PR, run the checks to catch any issues:
 
 ```bash
-pnpm validate
+pnpm check
 ```
 
-This checks only your locally changed posts (staged, unstaged, and untracked).
+This runs the same checks as CI (formatting and post validation). It validates only your
+locally changed posts (staged, unstaged, and untracked).
 
 ## How it works
 

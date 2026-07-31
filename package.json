@@ -5,12 +5,13 @@
   "scripts": {
     "get-github-id": "node scripts/get-github-id.ts",
     "create-post": "node scripts/create-post.ts",
-    "validate": "node scripts/validate.ts",
+    "check": "greenly",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
+    "greenly": "1.1.0",
     "oxfmt": "0.61.0"
   },
   "engines": {

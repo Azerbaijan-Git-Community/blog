@@ -91,9 +91,6 @@ function validatePost(slug: string, prAuthorId?: string): string[] {
   return errors;
 }
 
-const args = process.argv.slice(2).filter(Boolean);
-const prAuthorId = process.env.PR_AUTHOR_ID;
-
 function gitLines(cmd: string): string[] {
   try {
     return execSync(cmd, { encoding: "utf8" }).trim().split("\n").filter(Boolean);
@@ -111,37 +108,85 @@ function extractSlugs(lines: string[]): string[] {
   return [...slugs];
 }
 
-let slugs: string[];
-if (args.length > 0) {
-  // CI: slugs passed directly as arguments
-  slugs = args;
-} else {
-  // Local: detect changed posts via git
-  const lines = [
-    ...gitLines("git diff --name-only --diff-filter=A --cached -- posts/"),
-    ...gitLines("git diff --name-only --diff-filter=CMRT --cached -- posts/"),
-    ...gitLines("git diff --name-only --diff-filter=CMRT -- posts/"),
-    ...gitLines("git ls-files --others --exclude-standard -- posts/"),
-  ];
-  slugs = extractSlugs(lines);
+/**
+ * Detect the changed post slugs. In CI (pull_request) it diffs against the base
+ * branch; locally it diffs the working tree (staged + unstaged + untracked).
+ * Deleted posts are skipped (only slugs whose directory still exists are kept).
+ */
+function changedSlugs(): string[] {
+  const base = process.env.GITHUB_BASE_REF;
+  const lines = base
+    ? gitLines(`git diff --name-only --diff-filter=ACMRT origin/${base}...HEAD -- posts/`)
+    : [
+        ...gitLines("git diff --name-only --diff-filter=A --cached -- posts/"),
+        ...gitLines("git diff --name-only --diff-filter=CMRT --cached -- posts/"),
+        ...gitLines("git diff --name-only --diff-filter=CMRT -- posts/"),
+        ...gitLines("git ls-files --others --exclude-standard -- posts/"),
+      ];
+  return extractSlugs(lines).filter((slug) => existsSync(join("posts", slug)));
 }
 
-if (slugs.length === 0) {
-  console.log("No posts to validate.");
-  process.exit(0);
-}
+/**
+ * Verify the post author is registered on the website. Runs only in CI where the
+ * secret and website URL are provided; skipped (returns null) otherwise, and
+ * network errors do not fail the PR. Returns an error message, or null when ok.
+ */
+async function checkAuthorRegistered(authorId: string): Promise<string | null> {
+  const secret = process.env.BLOG_VALIDATE_SECRET;
+  const websiteUrl = process.env.WEBSITE_URL;
+  if (!secret || !websiteUrl) return null;
 
-let hasErrors = false;
-for (const slug of slugs) {
-  const errors = validatePost(slug, prAuthorId);
-  if (errors.length > 0) {
-    hasErrors = true;
-    console.error(`✗ ${slug}`);
-    for (const err of errors) console.error(`    - ${err}`);
-  } else {
-    console.log(`✓ ${slug}`);
+  try {
+    const res = await fetch(`${websiteUrl}/api/blog/validate-author?githubId=${authorId}`, {
+      headers: { Authorization: `Bearer ${secret}` },
+    });
+    if (res.status === 404) {
+      const body = (await res.json().catch(() => null)) as { message?: string } | null;
+      return body?.message ?? `Author ${authorId} is not registered on the website`;
+    }
+    if (!res.ok) return `Author check failed (HTTP ${res.status})`;
+    return null;
+  } catch {
+    return null;
   }
 }
 
-if (hasErrors) process.exit(1);
-else console.log("\nAll validations passed!");
+/**
+ * Validate changed blog posts. Detects the changes itself, checks frontmatter,
+ * cover image, and image sizes, verifies the author is registered (in CI), and
+ * throws when any post is invalid (which fails the check).
+ */
+export async function validate(): Promise<void> {
+  const slugs = changedSlugs();
+  if (slugs.length === 0) {
+    console.log("No changed posts to validate.");
+    return;
+  }
+
+  const prAuthorId = process.env.PR_AUTHOR_ID;
+  let hasErrors = false;
+
+  for (const slug of slugs) {
+    const errors = validatePost(slug, prAuthorId);
+
+    if (errors.length === 0) {
+      const fm = parseFrontmatter(readFileSync(join("posts", slug, "index.mdx"), "utf-8"));
+      const author = fm?.author;
+      if (author && /^\d+$/.test(author)) {
+        const authorError = await checkAuthorRegistered(author);
+        if (authorError) errors.push(authorError);
+      }
+    }
+
+    if (errors.length > 0) {
+      hasErrors = true;
+      console.error(`✗ ${slug}`);
+      for (const err of errors) console.error(`    - ${err}`);
+    } else {
+      console.log(`✓ ${slug}`);
+    }
+  }
+
+  if (hasErrors) throw new Error("Blog post validation failed. See the issues listed above.");
+  console.log("\nAll validations passed!");
+}

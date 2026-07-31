@@ -7,7 +7,7 @@
 
 ## Checklist
 
-- [ ] I have signed up on the [Azerbaijan GitHub Community website](https://githubcommunity.az) with my GitHub account
-- [ ] I ran `pnpm get-github-id <my-username>` and set the correct `author` ID in frontmatter
+- [ ] I ran `pnpm check` locally and it passed
+- [ ] I have signed up on the githubcommunity.az
+- [ ] I set the correct `author` ID in posts
 - [ ] All images are under 1 MB each and 5 MB total
-- [ ] I ran `pnpm validate` locally and it passed

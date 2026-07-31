@@ -6,74 +6,35 @@ on:
     paths:
       - "posts/**"
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/checkout@v7
         with:
-          node-version: 24
+          fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 11.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Get changed files
-        id: changed
-        uses: tj-actions/changed-files@v44
-        with:
-          files: "posts/**"
-
-      - name: Extract changed slugs
-        id: slugs
-        run: |
-          slugs=$(echo "${{ steps.changed.outputs.all_changed_files }}" \
-            | tr ' ' '\n' \
-            | grep '^posts/' \
-            | sed 's|posts/\([^/]*\)/.*|\1|' \
-            | sort -u \
-            | tr '\n' ' ')
-          echo "list=$slugs" >> $GITHUB_OUTPUT
-
-      - name: Validate posts
-        run: pnpm validate ${{ steps.slugs.outputs.list }}
+      - name: Run checks
+        run: pnpm check
         env:
           PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
-
-      - name: Check author is registered on website
-        env:
           BLOG_VALIDATE_SECRET: ${{ secrets.AUTHOR_VALIDATE_SECRET }}
           WEBSITE_URL: ${{ secrets.WEBSITE_URL }}
-        run: |
-          failed=0
-          for slug in ${{ steps.slugs.outputs.list }}; do
-            author_id=$(grep -m1 '^author:' "posts/$slug/index.mdx" | awk '{print $2}')
-            [ -z "$author_id" ] && continue
-
-            response=$(curl -s -w "\n%{http_code}" \
-              -H "Authorization: Bearer $BLOG_VALIDATE_SECRET" \
-              "$WEBSITE_URL/api/blog/validate-author?githubId=$author_id" 2>&1) || true
-
-            http_code=$(echo "$response" | tail -1)
-            body=$(echo "$response" | head -1)
-
-            echo "$slug: $body"
-
-            if [ "$http_code" = "404" ]; then
-              message=$(echo "$body" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
-              echo "::error::$slug: $message"
-              failed=1
-            elif [ "$http_code" != "200" ]; then
-              echo "::error::$slug: Author check failed (HTTP $http_code)"
-              failed=1
-            fi
-          done
-          exit $failed
