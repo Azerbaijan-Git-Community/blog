@@ -14,6 +14,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["scripts/**/*.ts", "greenly.config.ts"],
+  "include": ["scripts/**/*.ts", "greenly.config.ts", "oxfmt.config.ts"],
   "exclude": ["node_modules"]
 }
