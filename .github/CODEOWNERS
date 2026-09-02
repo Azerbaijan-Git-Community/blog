@@ -1,5 +1,5 @@
 # Everything (except posts/*) requires review from the CTO by default.
-*                   @yusifaliyevpro
+*                   @Azerbaijan-Git-Community/cto
 
 # Blog content: any changes inside posts/ can be reviewed by the maintainers team.
 /posts/             @Azerbaijan-Git-Community/maintainers
