@@ -10,9 +10,9 @@
     "fmt:check": "oxfmt --check"
   },
   "devDependencies": {
-    "@types/node": "24.13.6",
-    "greenly": "1.1.6",
-    "oxfmt": "0.70.0",
+    "@types/node": "24.19.1",
+    "greenly": "1.2.0",
+    "oxfmt": "0.71.0",
     "typescript": "7.0.2"
   },
   "engines": {
