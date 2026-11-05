@@ -12,7 +12,7 @@
   "devDependencies": {
     "@types/node": "24.19.2",
     "greenly": "1.2.0",
-    "oxfmt": "0.75.0",
+    "oxfmt": "0.76.0",
     "typescript": "7.0.2"
   },
   "engines": {
