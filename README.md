@@ -13,3 +13,5 @@ Community members now write on Omicron, and their posts appear on the [community
 4. Choose which of your existing posts to show.
 
 New posts on Omicron then appear on the community blog automatically. You can hide any post from **My blog posts** in the avatar menu.
+
+The End
